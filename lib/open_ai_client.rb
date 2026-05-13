@@ -10,12 +10,12 @@ require "uri"
 #
 #   openai:
 #     api_key: sk-...
-#     model: gpt-4.1-nano   # optional; defaults to gpt-4.1-nano
+#     model: gpt-5-nano   # optional; defaults to gpt-5-nano (GPT-5 nano series)
 #
 class OpenAiClient
   class Error < StandardError; end
 
-  DEFAULT_MODEL = "gpt-4.1-nano"
+  DEFAULT_MODEL = "gpt-5-nano"
   CHAT_URL = URI("https://api.openai.com/v1/chat/completions")
 
   def initialize(api_key: nil, model: nil)
