@@ -1,0 +1,19 @@
+<div class="container py-5">
+  <h1 class="h2 mb-1">Welcome,</h1>
+  <p class="display-6 fw-semibold mb-4">Hackathon 2</p>
+
+  <% if @error.present? %>
+    <div class="alert alert-danger" role="alert"><%= @error %></div>
+  <% end %>
+
+  <%= form_with url: ask_path, method: :post, data: { turbo: false }, class: "mb-4" do |f| %>
+    <label for="prompt" class="form-label">Your message</label>
+    <%= f.text_area :prompt, value: @prompt, id: "prompt", rows: 5, class: "form-control", required: true, placeholder: "Ask something…" %>
+    <%= f.submit "Send to GPT", class: "btn btn-primary mt-3" %>
+  <% end %>
+
+  <% if @feedback.present? %>
+    <h2 class="h5 mb-2">Response</h2>
+    <div class="border rounded-3 p-3 bg-body-secondary" style="white-space: pre-wrap;"><%= @feedback %></div>
+  <% end %>
+</div>
