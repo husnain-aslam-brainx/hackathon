@@ -1,0 +1,32 @@
+{
+  "schema_version": "llm.requirement_slices.v1",
+  "canonical_document_ref": "client-bundle-abc",
+  "document_title": "Example brief",
+  "slices": [
+    {
+      "slice_id": "sl-001",
+      "statement": "The portal must support SSO via SAML 2.0.",
+      "status": "supported",
+      "evidence": [
+        {
+          "block_id": "p-012",
+          "quote": "support SSO via SAML 2.0"
+        }
+      ],
+      "blocking_questions": []
+    },
+    {
+      "slice_id": "sl-002",
+      "statement": "Non-functional latency target for search.",
+      "status": "not_found",
+      "evidence": [],
+      "blocking_questions": [
+        {
+          "question_id": "q-001",
+          "text": "What is the maximum acceptable p95 latency for search?",
+          "rationale": "Brief mentions fast search but gives no numeric SLA."
+        }
+      ]
+    }
+  ]
+}

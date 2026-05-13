@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hackathon.local/schemas/llm/requirement_slices/v1.json",
+  "title": "LLM intermediate: requirement slices",
+  "description": "Atomic requirement candidates extracted from a canonical document model. Every slice must either cite evidence (supported) or declare gaps (not_found) with blocking questions—no silent invention.",
+  "type": "object",
+  "required": ["schema_version", "slices"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "llm.requirement_slices.v1"
+    },
+    "canonical_document_ref": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Opaque client-provided reference to the parsed document bundle (no server-side storage required)."
+    },
+    "document_title": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Optional short label inferred from the brief (still subject to traceability rules on slices)."
+    },
+    "slices": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/slice" }
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "required": ["block_id", "quote"],
+      "additionalProperties": false,
+      "properties": {
+        "block_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9._-]*$",
+          "description": "Stable id from the canonical document model (e.g. p-042, li-003-002, t-01-r-2-c-3)."
+        },
+        "quote": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "description": "Verbatim substring from the referenced block; used by the deterministic verifier."
+        }
+      }
+    },
+    "blocking_question": {
+      "type": "object",
+      "required": ["question_id", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "question_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Stable id for round-trips; client echoes answers keyed by this id."
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "rationale": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Why this cannot be grounded in the brief (missing field, conflict, etc.)."
+        }
+      }
+    },
+    "slice": {
+      "type": "object",
+      "required": ["slice_id", "statement", "status", "evidence", "blocking_questions"],
+      "additionalProperties": false,
+      "properties": {
+        "slice_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9._-]*$",
+          "description": "Unique within this payload."
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000,
+          "description": "Single atomic requirement phrased for downstream ticketification."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["supported", "not_found"],
+          "description": "supported: grounded in evidence; not_found: not stated clearly in the brief—must ask."
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence" },
+          "maxItems": 20,
+          "description": "One or more citations when status is supported; may be empty only when status is not_found."
+        },
+        "blocking_questions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/blocking_question" },
+          "maxItems": 50,
+          "description": "Must be non-empty when status is not_found; may be empty or populated when status is supported."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "supported" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "evidence": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "not_found" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "blocking_questions": { "minItems": 1 }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

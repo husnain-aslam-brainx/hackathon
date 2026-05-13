@@ -1,0 +1,73 @@
+<div class="container py-5" style="max-width: 52rem;">
+  <nav class="mb-4" aria-label="Breadcrumb">
+    <%= link_to "Home", root_path, class: "text-decoration-none" %>
+    <span class="text-body-secondary mx-2">/</span>
+    <span class="text-body-secondary">Brief pipeline</span>
+  </nav>
+
+  <h1 class="h2 mb-2">Client brief pipeline</h1>
+  <p class="text-body-secondary mb-4">
+    Upload a Word brief (<code>.docx</code>). Step 1 only checks the file; parsing and AI steps come next.
+  </p>
+
+  <% if @result.present? %>
+    <% if @result[:ok] %>
+      <div class="alert alert-success" role="status">
+        <strong>Upload OK.</strong>
+        <%= @result[:data][:filename] %>
+        · <%= number_with_delimiter(@result[:data][:byte_size]) %> bytes
+        <% if @result[:data][:content_type].present? %>
+          · <span class="text-break"><%= @result[:data][:content_type] %></span>
+        <% end %>
+      </div>
+    <% else %>
+      <div class="alert alert-danger" role="alert">
+        <strong>Upload could not be verified.</strong>
+        <ul class="mb-0 mt-2">
+          <% Array(@result[:errors]).each do |msg| %>
+            <li><%= msg %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+  <% end %>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body p-4">
+      <h2 class="h5 card-title mb-3">Step 1 — Verify upload</h2>
+      <%= form_with url: brief_pipeline_upload_path, method: :post, local: true, html: { multipart: true, class: "needs-validation" }, data: { turbo: false } do |f| %>
+        <div class="mb-3">
+          <%= f.label :document, "Brief file (.docx)", class: "form-label" %>
+          <%= f.file_field :document,
+                accept: ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                class: "form-control",
+                required: true %>
+          <div class="form-text">Maximum size <%= number_with_delimiter(BriefPipeline::ValidateUpload::MAX_BYTES) %> bytes. File must be a real Office Open XML document (ZIP).</div>
+        </div>
+        <%= f.submit "Verify upload", class: "btn btn-primary" %>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="card border-secondary-subtle">
+    <div class="card-header bg-body-secondary">
+      <h2 class="h6 mb-0">Pipeline steps</h2>
+    </div>
+    <ul class="list-group list-group-flush">
+      <% (@manifest&.dig("steps") || []).each do |step| %>
+        <li class="list-group-item d-flex flex-wrap gap-2 align-items-baseline justify-content-between">
+          <div>
+            <span class="badge rounded-pill <%= step["status"] == "implemented" ? "text-bg-success" : "text-bg-secondary" %>"><%= step["status"] %></span>
+            <strong class="ms-1"><%= step["id"] %></strong>
+            <span class="text-body-secondary d-block mt-1 small"><%= step["label"] %></span>
+          </div>
+          <% if step["status"] == "implemented" && step["id"] == "validate_upload" %>
+            <code class="small text-break"><%= step["http_method"] %> <%= step["path"] %></code>
+          <% elsif step["path"].present? %>
+            <code class="small text-break text-body-secondary"><%= step["path"] %></code>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+</div>

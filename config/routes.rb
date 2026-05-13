@@ -7,4 +7,13 @@ Rails.application.routes.draw do
 
   root "home#index"
   post "ask", to: "home#ask", as: :ask
+
+  # Client brief → tasks pipeline (HTML UI + JSON API for the same steps)
+  namespace :brief_pipeline, path: "brief_pipeline" do
+    root to: "ui#show"
+    post "upload", to: "ui#validate", as: :upload
+
+    get "manifest", to: "pipeline#manifest"
+    post "step/validate_upload", to: "pipeline#validate_upload"
+  end
 end

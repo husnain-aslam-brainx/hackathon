@@ -2,6 +2,10 @@
   <h1 class="h2 mb-1">Welcome,</h1>
   <p class="display-6 fw-semibold mb-4">Hackathon 2</p>
 
+  <p class="mb-4">
+    <%= link_to "Client brief pipeline", brief_pipeline_root_path, class: "btn btn-outline-primary btn-sm" %>
+  </p>
+
   <% if @error.present? %>
     <div class="alert alert-danger" role="alert"><%= @error %></div>
   <% end %>
