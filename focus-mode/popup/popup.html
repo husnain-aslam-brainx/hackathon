@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Focus Mode</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="header">
+        <div>
+          <h1>Focus Mode</h1>
+          <p id="status-text" class="status-text">Notifications allowed</p>
+        </div>
+        <button id="toggle-btn" class="toggle-btn" type="button" aria-pressed="false">
+          <span class="toggle-track">
+            <span class="toggle-thumb"></span>
+          </span>
+        </button>
+      </header>
+
+      <section id="live-panel" class="panel hidden">
+        <div class="stat-row">
+          <span>Session time</span>
+          <strong id="session-timer">0m</strong>
+        </div>
+        <div class="stat-row">
+          <span>Observed attempts</span>
+          <strong id="live-attempts">0</strong>
+        </div>
+      </section>
+
+      <section id="report-panel" class="panel hidden">
+        <h2>Focus session complete</h2>
+        <div class="stat-row">
+          <span>Focus duration</span>
+          <strong id="report-duration">—</strong>
+        </div>
+        <div class="stat-row">
+          <span>Observed attempts</span>
+          <strong id="report-total">0</strong>
+        </div>
+        <div class="stat-row sub">
+          <span>Blocked (observed)</span>
+          <strong id="report-blocked">0</strong>
+        </div>
+        <div class="stat-row sub">
+          <span>Allowed — whitelisted</span>
+          <strong id="report-allowed">0</strong>
+        </div>
+        <div id="top-domains" class="top-domains"></div>
+        <p class="disclaimer" id="report-disclaimer"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Whitelist</h2>
+        <p class="hint">Notifications from these domains are never blocked.</p>
+        <form id="whitelist-form" class="whitelist-form">
+          <input
+            id="whitelist-input"
+            type="text"
+            placeholder="calendar.google.com"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="submit">Add</button>
+        </form>
+        <ul id="whitelist-list" class="whitelist-list"></ul>
+      </section>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
