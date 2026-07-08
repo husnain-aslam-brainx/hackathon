@@ -1,0 +1,448 @@
+╭─── Claude Code v2.1.204 ─────────────────────────────────────────────────────╮
+│                                     │ Tips for getting started               │
+│        Welcome back Husnain!        │ Run /init to create a CLAUDE.md file … │
+│                                     │ ────────────────────────────────────── │
+│               ▐▛███▜▌               │ What's new                             │
+│              ▝▜█████▛▘              │ Fixed hook events not streaming durin… │
+│                ▘▘ ▝▝                │ Added a warning when your login is ab… │
+│                                     │ Added a grey ⏸ badge to the footer wh… │
+│   Sonnet 5 · Claude Team · BrainX   │ /release-notes for more                │
+│        ~/Hackathon/hackathon        │                                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+ ▎ Extended: Fable 5 is included in your weekly limit
+ ▎ Through July 12, you can use up to 50% of your weekly usage limit on Fable 5. If you hit your limit, you can continue on Fable 5 with usage credits. Fable 5 draws down usage faster than Opus 4.8. Run /model and select Fable to use it. Learn more
+
+❯ I'm planning a Chrome extension called "Tab Hoarder Cleanup Assistant."       
+  Before we go anywhere, here's my framing — challenge it, don't rewrite it.    
+                                                                                
+  **Problem:** Power users accumulate 40+ open tabs. They can't tell which are  
+  safe to close, so they close nothing. Memory bloats, the tab strip becomes    
+  unusable, and important tabs get buried among dead ones.                      
+                                                                                
+  **User:** A single "tab hoarder" — someone who keeps tabs open as a to-do     
+  list / memory crutch and is afraid of losing something by closing the wrong   
+  one.                                                                          
+                                                                                
+  **Done means:** The user can open the extension, see a scored list of close   
+  candidates, each with a one-line reason, deselect anything, confirm, and have 
+  a working undo. Fear of loss is removed; the extension never closes anything  
+  on its own.                                                                   
+                                                                                
+  My questions for you:                                                         
+                                                                                
+  1. Is my problem statement missing anything about *why* people don't just     
+  close tabs themselves? I think it's fear of loss + decision fatigue — is      
+  there a third driver I'm ignoring?                                            
+  2. Am I framing "done" too much as UI mechanics instead of user outcome?      
+  Suggest a sharper one-sentence success definition.                            
+  3. Poke one hole in this framing that would change the design if I'm wrong    
+  about it.                                                                     
+                                                                                
+  Keep it short — bullet-level answers, no essays. I'll make the calls.         
+
+⏺ 1. Third driver?
+  - Fear of loss + decision fatigue are real, but there's a third: tabs as 
+  working state, not just references. A tab open mid-form, mid-video, or logged
+  into a scoped session isn't "a link I might need" — closing it costs actual
+  progress, not just findability. Your scoring will need to distinguish
+  "reference I could re-google" from "state I can't reconstruct," or users won't
+  trust any score.
+
+  2. Sharper "done"?
+  - Your current "done" is a feature checklist (list, reasons, deselect,
+  confirm, undo) — that's shippable, not a success condition.
+  - Sharper: "The user bulk-closes tabs they would not have closed unassisted, 
+  and never reopens the extension to recover one." That's behavior change + zero
+  regret, and it forces you to measure trust, not just UI completeness.
+
+  3. One hole:
+  - You moved decision fatigue, you didn't remove it. A scored list of 40
+  candidates the user must individually review-and-deselect is the same
+  cognitive task as reviewing 40 open tabs, just relabeled. If
+  review-and-deselect takes as long as manually triaging tabs, the extension
+  adds a step instead of removing one.
+  - This changes the design: you likely need confident bulk defaults per 
+  category ("these 12 are duplicate/stale news tabs — closed unless you object")
+  rather than one flat scored list the user has to read line by line. The score
+  isn't the product; the grouping that lets someone act on 10 at once without 
+  reading 10 reasons is.
+
+❯ I have a draft of the functional and non-functional requirements, and I want  
+  you to stress-test them. Don't suggest new features—just point out gaps, edge 
+  cases, or anything that feels too ambitious for a v1.                         
+                                                                                
+  The functional requirements are: score every open tab based on staleness,     
+  duplication, and likely irrelevance; show suggestions grouped by category     
+  with a short reason for each tab; pre-select all suggestions while allowing   
+  users to deselect individual tabs or entire groups before confirming; provide 
+  an undo option that restores all tabs from the last cleanup, including their  
+  URL, pinned state, and window placement, for at least the current browser     
+  session; never suggest tabs that are pinned, playing media, contain           
+  unsubmitted form data, are currently active, or belong to the tab group the   
+  user is actively working in; and work immediately without requiring any       
+  setup.                                                                        
+                                                                                
+  The non-functional requirements are: analyze more than 100 tabs in under two  
+  seconds, keep all processing local so no tab data leaves the browser, request 
+  only the minimum Chrome permissions needed, and have almost no idle resource  
+  usage by avoiding constant background polling.                                
+                                                                                
+  For v1, we're intentionally leaving out tab archiving or bookmarking,         
+  cross-device sync, session management features, machine learning for          
+  relevance, scheduled or automatic cleanups, and support for browsers other    
+  than Chrome.                                                                  
+                                                                                
+  I have three questions. First, what edge cases could break the first four     
+  functional requirements? I already thought of duplicate tabs where both       
+  copies are suggested instead of keeping one, and what happens if the original 
+  browser window is closed before an undo. What other cases should I consider?  
+  Second, is my protection list missing anything that could damage user trust?  
+  Also, if detecting unsubmitted form input isn't reliable, what fallback       
+  would you recommend? Finally, are any of the non-functional requirements      
+  unrealistic for a Chrome extension?                                           
+
+⏺ 1. Edge cases beyond the two you found
+
+  - MV3 service worker lifecycle: your undo buffer likely lives in memory during
+  "cleanup." Chrome unloads the background service worker after ~30s idle — if
+  that happens between cleanup and undo, the buffer is gone even though the tab
+  session is technically still alive. Undo needs to be persisted
+  (chrome.storage.session, not a JS variable) or it will silently fail
+  intermittently.
+  - State drift between scoring and confirm: user opens the popup, sees
+  suggestions, then in the background pins a tab, starts a video, or types into
+  a form on a suggested tab before hitting confirm. If you don't re-validate at
+  confirm time, you close something the protection rules were supposed to catch.
+  - Tab no longer exists at confirm time: user manually closed a suggested tab
+  (or another extension did) before confirming — your confirm action needs to
+  handle a missing tabId gracefully, not error out the whole batch.
+  - Tab navigated after scoring: the URL changed between analysis and confirm,
+  so the displayed "reason" (e.g., "duplicate of tab X") is now false. Stale
+  reasons are a trust problem, not just a bug.
+  - Repeated cleanups without undo: if a second cleanup runs before the user
+  undoes the first, and undo only tracks "the last cleanup," the first batch's
+  tabs may become permanently unrecoverable with no warning. Worth deciding if
+  that's acceptable or if you need to say so explicitly in the UI.
+  - Chrome's own tab restore colliding with yours: closing tabs via your
+  extension also pushes them into Chrome's native "reopened closed tab"
+  (Ctrl+Shift+T) history. A user could use both undo mechanisms and get
+  duplicates, or get confused about which one is authoritative.
+  - tabId reuse: Chrome recycles tab IDs after a tab closes. If your undo record
+  only stores tabId (not full metadata) and enough tab churn happens before
+  undo, you could restore into/onto the wrong tab. Sounds like you're already
+  storing URL/pinned/window placement, but double check window placement handles
+  a closed window, not just a closed tab — do you recreate the window, or fail?
+  - Post-restart staleness scoring: right after a browser restart, Chrome
+  restores all tabs at once, so "time since last accessed" collapses to roughly
+  the same value for everything — your staleness signal is briefly meaningless
+  immediately after startup.
+  - "Actively working in" tab group is ambiguous: most tab hoarders never use
+  Chrome's native tab groups at all — they just have one long flat window. If
+  group membership is your main protection signal, it will rarely fire for your
+  actual target user, so effectively all protection has to come from
+  activity/recency signals instead.
+
+  2. Protection list gaps + form-detection fallback
+
+  Gaps that could burn trust:
+  - Any tab with a generic beforeunload "leave site?" handler — broader than
+  form fields (in-browser editors, IDEs, drawing tools, Figma-style apps).
+  Protect on "would trigger a leave-confirmation," not just "has a form."
+  - Tabs mid-download.
+  - Tabs with active camera/mic/screen-share (video calls) — arguably worse to
+  close than playing media, and Chrome does expose some indicators for this.
+  - Tabs currently loading/mid-navigation — scoring against incomplete data.
+  - The last tab in a window — closing it closes the whole window, which is a
+  bigger action than the user asked for and should probably be called out even
+  if not blocked.
+  - Very recently opened tabs (grace period) — a brand-new "duplicate" might be
+  an intentional side-by-side comparison, not hoarding.
+
+  Fallback if form-data detection is unreliable: don't try to detect "dirty"
+  state directly. Instead bias conservatively — exclude any tab containing form
+  elements that the user has interacted with (clicked/typed) within some recent
+  window (e.g., last few hours), even without confirming actual unsaved changes.
+  False negatives (fewer suggestions) are the safe failure mode here; false
+  positives (closing something with real input) directly undermine the entire
+  premise of the tool. Worth separately verifying whether chrome.tabs.remove
+  still triggers the native "leave site?" dialog for extension-initiated closes
+  — if it does, that's a real safety net; if Chrome suppresses it for
+  programmatic closes, you have none and must lean fully on the heuristic.
+
+  3. NFR realism
+
+  - 100 tabs in under 2 seconds — trivial for the stated heuristics
+  (lastAccessed, URL matching) since it's just metadata, no DOM access. Not a
+  concern unless any detection (like form-state) requires injecting a content
+  script into every tab. That changes the picture badly: it would force Chrome
+  to wake up every discarded/unloaded tab to run the script — which spikes
+  memory, directly contradicts the extension's purpose, and blows both the time
+  budget and the idle-resource NFR at real hoarder scale (40–100+ tabs, many
+  already discarded by Chrome's own memory saver).
+  - Local-only processing — fine, no tension, nothing here needs network calls.
+  - Minimum permissions — this is the one with real tension. Reading tab
+  metadata needs the tabs permission, which is fine. But reliable
+  form/beforeunload detection needs scripting + broad host permissions, which
+  triggers Chrome's "read and change all your data on all websites" install
+  warning. That's a scary ask for a tool whose entire pitch is trust — the
+  permission requirement itself may undercut adoption before the extension does
+  anything.
+  - No idle polling — realistic if built event-driven (onActivated, onUpdated,
+  onRemoved) in MV3, which is the standard pattern anyway. The friction point is
+  the undo buffer: it needs to persist across service-worker unloads without
+  becoming "polling," so chrome.storage.session is the right fit — flagging it
+  because if it's not called out explicitly in the design, it's easy to
+  implement as an in-memory variable and have undo fail intermittently in
+  testing without an obvious cause.
+
+❯ MV3, event-driven service worker. Listeners on tabs.onActivated / onUpdated / 
+  onRemoved maintain a tiny per-tab activity ledger (lastActiveAt,              
+  activationCount, createdAt) in chrome.storage.local. No polling, near-zero    
+  idle cost.                                                                    
+  No scoring happens in the background. When the user opens the popup, we pull  
+  all tabs + the ledger, score synchronously, group, render. 100 tabs of        
+  metadata math is milliseconds.                                                
+  Scoring = weighted signals: staleness (ledger lastActiveAt, falling back to   
+  tab.lastAccessed), duplication (normalized-URL match, keep the                
+  most-recently-active twin), irrelevance heuristics (e.g., search-results      
+  pages, dead chrome:// leftovers, N near-identical docs). Plain transparent    
+  rules — every score maps 1:1 to a human-readable reason string, which is how  
+  F2's one-liners stay honest.                                                  
+  UI is the extension popup itself: grouped list, checkboxes, one confirm       
+  button, undo toast after.                                                     
+                                                                                
+  My questions:                                                                 
+                                                                                
+  The ledger duplicates what tab.lastAccessed gives me for free. Is maintaining 
+  my own ledger worth it, or is lastAccessed alone sufficient and I'm           
+  over-building? What does the ledger buy that lastAccessed can't?              
+  Popup vs. a full-tab management page: at 40–100 suggestions, does a 600px     
+  popup collapse under its own weight? Give me the honest trade-off.            
+  Give me your two alternatives to the overall architecture — and tell me which 
+  single decision in my approach you'd bet is wrong.                            
+
+⏺ 1. Ledger vs. tab.lastAccessed alone
+
+  - lastAccessed gives you recency of one axis (last time the tab became active)
+  — nothing about frequency, age, or anything that survives past the current
+  Tab object's lifetime.
+  - What the ledger actually buys you, if you're capturing it:
+    - activationCount — distinguishes "glanced at once 3 days ago" from "flip
+  back to this 15x/day." Pure recency can't tell a reference tab from a dead one
+  if both were last touched yesterday.
+    - createdAt — tab age independent of activity. "Opened 3 weeks ago, touched
+  once" reads very differently from "opened yesterday, touched once," and
+  lastAccessed alone can't separate them.
+    - Survivability across tab-object churn — but only if keyed by normalized
+  URL, not tabId. On browser restart (or crash recovery), Chrome creates new tab
+  objects with new IDs — lastAccessed resets, and a tabId-keyed ledger has the
+  exact same blind spot. If you want the ledger to actually outlive that, key it
+  by URL.
+  - Where I'd push back on the current design: what fires lastActiveAt updates?
+  If it's onActivated only, you're rebuilding lastAccessed with extra steps —
+  cut it, use the native field directly. If onUpdated also bumps it, watch out —
+  a backgrounded auto-refreshing tab (news page, dashboard) fires onUpdated
+  without the user ever looking at it, which would make it look "fresh" and
+  defeat the staleness signal you're trying to build.
+  - Also: unbounded growth. Entries for tabs closed while the service worker was
+  asleep, or orphaned by a restart, need pruning on onStartup (diff against
+  chrome.tabs.query) or storage.local slowly fills with garbage.
+  - Verdict: worth keeping only if you're using activationCount/createdAt as
+  real scoring inputs. If the ledger is just a recency mirror, it's redundant —
+  drop it and lean on lastAccessed.
+
+  2. Popup vs. full-tab page
+
+  - Real constraint isn't size, it's lifecycle: a popup's DOM and JS state are
+  destroyed the moment it loses focus. If the user is 30 rows into deselecting,
+  and clicks an actual tab to double-check "wait, is this really a duplicate,"
+  the popup closes and the review state is gone — unless you persist every
+  checkbox toggle to storage as a hedge, which adds its own complexity.
+  - Popups also can't be sanely resized/dragged cross-platform, and they
+  visually cover the tab strip — the one piece of context the user most wants to
+  glance at while deciding whether a suggestion is safe.
+  - A grouped list of 40–100 items with reasons is a genuine scan-and-verify
+  task, not a glance. That's a page interaction pattern, not a popup one.
+  - Trade-off going the other way: a full-page view is an extra tab (mildly
+  ironic for a tab-cleanup tool), needs an explicit open step instead of
+  icon-click convenience, and means deciding whether the toolbar icon opens a
+  tab directly or a small popup just launches it.
+  - Honest call: popup is fine as a lightweight trigger/badge ("14 suggestions
+  ready — review"), but I wouldn't put the actual triage UI inside it once
+  you're past maybe 15–20 rows. The failure mode (silent state loss on focus
+  change) is exactly the kind of thing that erodes the trust this whole
+  extension is supposed to build.
+
+  3. Two alternatives, and the bet
+
+  - Alt A — no ledger, fully stateless: score purely from chrome.tabs.query
+  metadata (lastAccessed, id, url, title) at popup-open time, zero persistent
+  storage. Accept the post-restart blind spot as a disclosed limitation rather
+  than engineering around it. Trades signal richness for zero storage/schema/GC
+  surface area.
+  - Alt B — persistent workspace instead of popup+toast: a standing extension
+  page that's the primary surface, keeps selection/snooze state in storage
+  across sessions ("not now, remind me in a week" per tab), rather than a single
+  ephemeral review-and-confirm flow. More state to manage, but matches a
+  page-based UI naturally and avoids rebuilding review state from scratch every
+  time.
+  - The decision I'd bet is wrong: the popup as the container for the actual
+  40–100-item review interaction. The ledger question is a YAGNI/efficiency call
+  — low stakes either way. The popup choice is a correctness/trust risk —
+  focus-loss destroying in-progress triage state directly undermines the "fear
+  of loss is removed" success criterion you defined earlier, and it'll show up
+  the first time a real user multitasks mid-review, which for this user (40+
+  tabs open because they're mid-task-switching constantly) is not an edge case,
+  it's the common case.
+
+❯ Here's my full architecture. Audit it: name anything that won't work as       
+  described in MV3, any missing data flow, and any stack choice you'd veto with 
+  reasons. Then I finalize.                                                     
+                                                                                
+  **Components:**                                                               
+                                                                                
+  1. **Service worker (event-driven):** listeners on `tabs.onActivated` (bump   
+  ledger), `tabs.onCreated` (createdAt), `tabs.onRemoved` (mark closed),        
+  `runtime.onStartup` (prune ledger, set staleness-suppressed flag), badge      
+  updater (debounced suggestion count).                                         
+  2. **Review page** (`chrome-extension://…/review.html`): on load, calls       
+  `chrome.tabs.query({})` + reads ledger → scoring module → grouped render.     
+  Selection state mirrored to `storage.session` on every toggle so an           
+  accidental page close loses nothing.                                          
+  3. **Scoring module** (pure functions, zero Chrome APIs): input = array of    
+  {tab metadata + ledger entry}, output = array of {tabId, score, groupKey,     
+  reasonString}. Pure so it's unit-testable without a browser.                  
+  4. **Closer/undo module:** confirm → re-validate protections →                
+  `tabs.remove(batch)` → write undo record {url, pinned, windowId, index,       
+  title, favicon} per tab to `storage.session` undo stack (max 3) → toast on    
+  review page. Undo → recreate via `tabs.create` (and `windows.create` if       
+  source window gone).                                                          
+                                                                                
+  **Data flow:** events → ledger (`storage.local`) → review page reads → score  
+  → user confirms → undo stack (`storage.session`).                             
+                                                                                
+  **Stack:** vanilla TypeScript + Vite build, no UI framework (one page, a      
+  list, checkboxes — React is overhead), Vitest for the scoring module,         
+  manifest V3. Permissions final: `tabs`, `storage`, `downloads`, `favicon`.    
+                                                                                
+  My questions:                                                                 
+                                                                                
+  1. Anything in the closer/undo flow that MV3 breaks — e.g., can the review    
+  page itself do `tabs.remove`, or must it message the service worker? Where    
+  does undo state live if the review tab is itself closed?                      
+  2. Is `windowId` + `index` enough to restore placement sanely, or is that     
+  false precision after other tabs have shifted?                                
+  3. Veto or bless the no-framework call at ~100 interactive rows with          
+  group-collapse and select-all states.                                         
+  4. Anything missing from the permission list for what I've described (badge,  
+  favicons, window recreation)?                                                 
+                                                                                
+  After your answer I lock the stack section and we break tasks.                
+
+⏺ Two things to fix before you lock this — both are correctness bugs, not style 
+  notes:
+
+  1. Undo-record ordering is backwards, and it's the one failure mode that 
+  matters most. Your flow is confirm → tabs.remove(batch) → write undo record.
+  If anything fails between the remove succeeding and the storage write
+  completing — page crash, extension reload, a thrown exception in the
+  favicon-fetch step, a storage quota hiccup — you've destroyed tabs with zero
+  record of what they were. That's the exact failure this product exists to
+  prevent. Reverse it: write the undo record to storage.session first, confirm
+  the write succeeded, then call tabs.remove. storage.session is in-memory, so
+  the write is fast — there's no performance reason for the current order, only
+  a bug.
+  2. Missing data flow: how does the badge get its count? You've stated scoring
+  only happens in the review page ("no scoring happens in the background"), but
+  component 1 also has "badge updater (debounced suggestion count)" living in
+  the service worker. Those two statements conflict — the SW can't show a
+  suggestion count without either running scoring itself or showing a different,
+  cheaper number (e.g., raw stale-tab count instead of true scored
+  suggestions). Resolve this explicitly: either the scoring module gets imported
+  and called from both contexts (fine, since it's pure — the SW just becomes
+  another caller that gathers tab+ledger data and feeds it in), or the badge
+  shows a proxy metric and you say so. Right now the design doc contradicts
+  itself.
+
+  Now your four questions:
+
+  1. Review page calling tabs.remove directly — does MV3 allow it?
+  Yes. Any extension page (popup, options, or a plain extension tab like your
+  review page) has direct access to chrome.tabs.*/chrome.windows.* as long as
+  the manifest has the permission — it doesn't need to message the service
+  worker. This is a common MV3 misconception (people assume only the background
+  context can call extension APIs); it's not true for tabs/storage/windows. So
+  your architecture is right to keep the closer module in the page — it's
+  actually safer, since the page's lifetime isn't subject to SW suspension the
+  way a background-driven flow would be.
+
+  Where undo state lives if the review tab closes: storage.session is readable
+  from any extension context, including the SW or a freshly-opened review page
+  next time, so it survives the tab closing — fine, as long as finding #1 above
+  is fixed so the record actually exists before the remove happens. One more
+  thing to make explicit: exclude chrome-extension:// URLs (the review page
+  itself) from the candidate list by scheme, not just by "is it the active tab"
+  — in a multi-window setup the review page might not be the focused window when
+  scoring runs.
+
+  2. Is windowId + index enough for placement?
+  Precise only for immediate undo with nothing else happening in that window in
+  between. The moment the user opens a new tab, closes something else, or drags
+  tabs around before hitting undo, stored indices no longer correspond to
+  equivalent positions — and since you're keeping an undo stack of 3, older
+  entries are almost guaranteed to have stale indices by the time someone
+  reaches for them. Recommendation: clamp index to current tab count so
+  tabs.create doesn't error out of bounds, and treat it as best-effort
+  placement, not a guarantee. The more honest and robust contract is preserving
+  relative order within the restored batch, not the exact absolute original
+  position — say that in the undo toast copy too, so users don't expect
+  pixel-perfect restoration.
+
+  Also confirm windowId existence before use (windows.get in a try/catch), not
+  just assume — a closed window's ID doesn't resolve to anything, and you've
+  already planned for windows.create as fallback, just make sure the check
+  happens rather than relying on the create call to fail gracefully.
+
+  3. No-framework vanilla TS at ~100 rows — bless or veto?
+  Bless, with one condition. Raw DOM performance at 100 rows is a non-issue —
+  that's nowhere near where vanilla JS struggles. The real risk isn't
+  performance, it's correctness: indeterminate select-all checkboxes (group
+  checkbox reflecting partial selection) and keeping per-group counts / global
+  "N selected" in sync as the user toggles arbitrary combinations is exactly the
+  kind of state you can silently get wrong with imperative per-event DOM
+  patches (miss a re-render call somewhere, a count drifts, nobody notices until
+  a bug report). Commit to a single source-of-truth state object (e.g.
+  Map<tabId, selected>) plus one render(state) function that redraws affected
+  subtrees on every change, rather than hand-patching DOM nodes inside each
+  click handler. That's still "vanilla," just disciplined — no framework needed,
+  but don't let the simplicity of the stack talk you into an ad hoc state
+  model.
+
+  4. Permission list — tabs, storage, downloads, favicon. Gaps?
+
+  - Missing: tabGroups. Your functional requirement to never suggest tabs in the
+  group the user's actively working in needs group metadata (collapsed state,
+  etc.) via chrome.tabGroups, which isn't unlocked by tabs alone. Add it.
+  - Unjustified as described: downloads. Nothing in the architecture you've laid
+  out touches chrome.downloads. If this is there to support protecting a tab
+  with an active download (something I raised earlier), that's a real use case —
+  but then it needs an actual listener/check wired into the protection logic,
+  not just a permission sitting unused. Either build that check or drop the
+  permission — an unused permission both violates your own minimal-permissions
+  NFR and adds unnecessary install-time scariness.
+  - Justified, keep: favicon. This is the real MV3 permission that unlocks the
+  built-in favicon endpoint without needing host permissions to the site. It's
+  specifically valuable for your undo toast, since by the time you're rendering
+  "here's what you're restoring," the original tab is gone and tab.favIconUrl is
+  no longer queryable — the favicon endpoint works from the stored URL alone,
+  locally, without hitting the remote server again. Good fit, keep it.
+  - Watch for: if the badge "debounce" is implemented as a plain setTimeout in
+  the service worker, that's unreliable — Chrome can suspend the SW while the
+  timer is pending, silently dropping the scheduled update. The MV3-correct
+  primitive for delayed background work is chrome.alarms, but its minimum
+  interval (~1 minute) is too coarse for a badge that should feel responsive to
+  tab activity. Simpler fix, no new permission needed: don't debounce with a
+  timer at all — the badge recompute is cheap (per finding #2, it's just tab
+  count + simple heuristics), so just run it synchronously on each relevant
+  event.
